@@ -1,36 +1,46 @@
-# Nama alur kerja kita, akan muncul di tab "Actions" di GitHub
-name: Build Native Executable
+name: Build and Push Native Image
 
-# Pemicu: Kapan alur kerja ini harus berjalan?
-# Dalam kasus ini, setiap kali ada 'push' ke branch 'main'
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Baris ini memungkinkan kita menjalankan workflow secara manual
+  workflow_dispatch:
 
 jobs:
-  # Nama pekerjaan kita, bisa apa saja
   build-and-push-image:
-    # Menentukan jenis "server virtual" yang akan digunakan
     runs-on: ubuntu-latest
+    # Menambahkan izin agar job bisa menulis ke GHCR
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      # Langkah 1: Mengunduh kode dari repositori kita
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Langkah 2: Menyiapkan lingkungan Java (GraalVM)
       - name: Set up GraalVM
-        uses: graalvm/setup-graalvm@v1
+        uses: graalvm/setup-graal-vm@v1
         with:
           java-version: '21'
           distribution: 'graalvm'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Langkah 3: Menjalankan proses build native
-      # Perhatikan, ini adalah perintah sederhana yang sama
+      # Kita tidak lagi butuh container build di sini, karena runner GitHub sudah Linux
       - name: Build native executable with Maven
-        run: ./mvnw package -Pnative -Dquarkus.native.container-build=true
+        run: ./mvnw package -Pnative
 
-      # (Kita akan menambahkan langkah untuk 'push' image di sesi berikutnya)
-      # Untuk saat ini, kita hanya fokus memastikan proses build berhasil
+      # --- LANGKAH BARU 1: Login ke GitHub Container Registry ---
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- LANGKAH BARU 2: Build dan Push Docker Image ---
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: src/main/docker/Dockerfile.native # Menggunakan Dockerfile yang sudah ada
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest # Menamai image secara dinamis
