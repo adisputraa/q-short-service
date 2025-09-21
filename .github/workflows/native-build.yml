@@ -1,0 +1,36 @@
+# Nama alur kerja kita, akan muncul di tab "Actions" di GitHub
+name: Build Native Executable
+
+# Pemicu: Kapan alur kerja ini harus berjalan?
+# Dalam kasus ini, setiap kali ada 'push' ke branch 'main'
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Baris ini memungkinkan kita menjalankan workflow secara manual
+
+jobs:
+  # Nama pekerjaan kita, bisa apa saja
+  build-and-push-image:
+    # Menentukan jenis "server virtual" yang akan digunakan
+    runs-on: ubuntu-latest
+
+    steps:
+      # Langkah 1: Mengunduh kode dari repositori kita
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Langkah 2: Menyiapkan lingkungan Java (GraalVM)
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Langkah 3: Menjalankan proses build native
+      # Perhatikan, ini adalah perintah sederhana yang sama
+      - name: Build native executable with Maven
+        run: ./mvnw package -Pnative -Dquarkus.native.container-build=true
+
+      # (Kita akan menambahkan langkah untuk 'push' image di sesi berikutnya)
+      # Untuk saat ini, kita hanya fokus memastikan proses build berhasil
